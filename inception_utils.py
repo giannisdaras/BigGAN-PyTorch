@@ -1,16 +1,16 @@
 ''' Inception utilities
     This file contains methods for calculating IS and FID, using either
-    the original numpy code or an accelerated fully-pytorch version that 
+    the original numpy code or an accelerated fully-pytorch version that
     uses a fast newton-schulz approximation for the matrix sqrt. There are also
     methods for acquiring a desired number of samples from the Generator,
     and parallelizing the inbuilt PyTorch inception network.
-    
-    NOTE that Inception Scores and FIDs calculated using these methods will 
+
+    NOTE that Inception Scores and FIDs calculated using these methods will
     *not* be directly comparable to values calculated using the original TF
     IS/FID code. You *must* use the TF model if you wish to report and compare
     numbers. This code tends to produce IS values that are 5-10% lower than
-    those obtained through TF. 
-'''    
+    those obtained through TF.
+'''
 import numpy as np
 from scipy import linalg # For numpy FID
 import time
@@ -20,6 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Parameter as P
 from torchvision.models.inception import inception_v3
+import torch_xla_py.xla_model as xm
 
 
 # Module that wraps the inception network to enable use with dataparallel and
@@ -120,7 +121,7 @@ def torch_cov(m, rowvar=False):
 
 
 # Pytorch implementation of matrix sqrt, from Tsung-Yu Lin, and Subhransu Maji
-# https://github.com/msubhransu/matrix-sqrt 
+# https://github.com/msubhransu/matrix-sqrt
 def sqrt_newton_schulz(A, numIters, dtype=None):
   with torch.no_grad():
     if dtype is None:
@@ -152,10 +153,10 @@ def numpy_calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
   -- mu1   : Numpy array containing the activations of a layer of the
              inception net (like returned by the function 'get_predictions')
              for generated samples.
-  -- mu2   : The sample mean over activations, precalculated on an 
+  -- mu2   : The sample mean over activations, precalculated on an
              representive data set.
   -- sigma1: The covariance matrix over activations for generated samples.
-  -- sigma2: The covariance matrix over activations, precalculated on an 
+  -- sigma2: The covariance matrix over activations, precalculated on an
              representive data set.
   Returns:
   --   : The Frechet Distance.
@@ -189,9 +190,9 @@ def numpy_calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
     if not np.allclose(np.diagonal(covmean).imag, 0, atol=1e-3):
       m = np.max(np.abs(covmean.imag))
       raise ValueError('Imaginary component {}'.format(m))
-    covmean = covmean.real  
+    covmean = covmean.real
 
-  tr_covmean = np.trace(covmean) 
+  tr_covmean = np.trace(covmean)
 
   out = diff.dot(diff) + np.trace(sigma1) + np.trace(sigma2) - 2 * tr_covmean
   return out
@@ -208,10 +209,10 @@ def torch_calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
   -- mu1   : Numpy array containing the activations of a layer of the
              inception net (like returned by the function 'get_predictions')
              for generated samples.
-  -- mu2   : The sample mean over activations, precalculated on an 
+  -- mu2   : The sample mean over activations, precalculated on an
              representive data set.
   -- sigma1: The covariance matrix over activations for generated samples.
-  -- sigma2: The covariance matrix over activations, precalculated on an 
+  -- sigma2: The covariance matrix over activations, precalculated on an
              representive data set.
   Returns:
   --   : The Frechet Distance.
@@ -225,7 +226,7 @@ def torch_calculate_frechet_distance(mu1, sigma1, mu2, sigma2, eps=1e-6):
 
   diff = mu1 - mu2
   # Run 50 itrs of newton-schulz to get the matrix sqrt of sigma1 dot sigma2
-  covmean = sqrt_newton_schulz(sigma1.mm(sigma2).unsqueeze(0), 50).squeeze()  
+  covmean = sqrt_newton_schulz(sigma1.mm(sigma2).unsqueeze(0), 50).squeeze()
   out = (diff.dot(diff) +  torch.trace(sigma1) + torch.trace(sigma2)
          - 2 * torch.trace(covmean))
   return out
@@ -243,7 +244,7 @@ def calculate_inception_score(pred, num_splits=10):
 
 
 # Loop and run the sampler and the net until it accumulates num_inception_images
-# activations. Return the pool, the logits, and the labels (if one wants 
+# activations. Return the pool, the logits, and the labels (if one wants
 # Inception Accuracy the labels of the generated class will be needed)
 def accumulate_inception_activations(sample, net, num_inception_images=50000):
   pool, logits, labels = [], [], []
@@ -260,7 +261,7 @@ def accumulate_inception_activations(sample, net, num_inception_images=50000):
 # Load and wrap the Inception model
 def load_inception_net(parallel=False):
   inception_model = inception_v3(pretrained=True, transform_input=False)
-  inception_model = WrapInception(inception_model.eval()).cuda()
+  inception_model = WrapInception(inception_model.eval()).to(xm.xla_device())
   if parallel:
     print('Parallelizing Inception module...')
     inception_model = nn.DataParallel(inception_model)
@@ -280,12 +281,12 @@ def prepare_inception_metrics(dataset, parallel, no_fid=False):
   data_sigma = np.load(dataset+'_inception_moments.npz')['sigma']
   # Load network
   net = load_inception_net(parallel)
-  def get_inception_metrics(sample, num_inception_images, num_splits=10, 
+  def get_inception_metrics(sample, num_inception_images, num_splits=10,
                             prints=True, use_torch=True):
     if prints:
       print('Gathering activations...')
     pool, logits, labels = accumulate_inception_activations(sample, net, num_inception_images)
-    if prints:  
+    if prints:
       print('Calculating Inception Score...')
     IS_mean, IS_std = calculate_inception_score(logits.cpu().numpy(), num_splits)
     if no_fid:
@@ -300,7 +301,7 @@ def prepare_inception_metrics(dataset, parallel, no_fid=False):
       if prints:
         print('Covariances calculated, getting FID...')
       if use_torch:
-        FID = torch_calculate_frechet_distance(mu, sigma, torch.tensor(data_mu).float().cuda(), torch.tensor(data_sigma).float().cuda())
+        FID = torch_calculate_frechet_distance(mu, sigma, torch.tensor(data_mu).float().to(xm.xla_device()), torch.tensor(data_sigma).float().to(xm.xla_device()))
         FID = float(FID.cpu().numpy())
       else:
         FID = numpy_calculate_frechet_distance(mu.cpu().numpy(), sigma.cpu().numpy(), data_mu, data_sigma)

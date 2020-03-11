@@ -885,7 +885,7 @@ def sample_sheet(G, classes_per_sheet, num_classes, samples_per_class, parallel,
   # loop over total number of sheets
   for i in range(num_classes // classes_per_sheet):
     ims = []
-    y = torch.arange(i * classes_per_sheet, (i + 1) * classes_per_sheet, device='cuda')
+    y = torch.arange(i * classes_per_sheet, (i + 1) * classes_per_sheet, device=xm.xla_device())
     for j in range(samples_per_class):
       if (z_ is not None) and hasattr(z_, 'sample_') and classes_per_sheet <= z_.size(0):
         z_.sample_()

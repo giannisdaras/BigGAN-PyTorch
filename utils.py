@@ -711,8 +711,10 @@ def save_weights(G, D, state_dict, weights_root, experiment_name,
 
 # Load a model's weights, optimizer, and the state_dict
 def load_weights(G, D, state_dict, weights_root, experiment_name,
-                 name_suffix=None, G_ema=None, strict=True, load_optim=True):
+                 name_suffix=None, G_ema=None, strict=True, load_optim=True,
+                 map_location='cpu'):
   root = '/'.join([weights_root, experiment_name])
+  device = xm.xla_device()
   if name_suffix:
     print('Loading %s weights from %s...' % (name_suffix, root))
   else:
@@ -720,24 +722,29 @@ def load_weights(G, D, state_dict, weights_root, experiment_name,
   if G is not None:
     G.load_state_dict(
       torch.load('%s/%s.pth' % (root, join_strings('_', ['G', name_suffix]))),
-      strict=strict)
+      strict=strict, map_location=map_location)
     if load_optim:
       G.optim.load_state_dict(
-        torch.load('%s/%s.pth' % (root, join_strings('_', ['G_optim', name_suffix]))))
+        torch.load('%s/%s.pth' % (root, join_strings('_', ['G_optim', name_suffix])), map_location=map_location))
+    G.to(device)
+
   if D is not None:
     D.load_state_dict(
       torch.load('%s/%s.pth' % (root, join_strings('_', ['D', name_suffix]))),
-      strict=strict)
+      strict=strict, map_location=map_location)
     if load_optim:
       D.optim.load_state_dict(
-        torch.load('%s/%s.pth' % (root, join_strings('_', ['D_optim', name_suffix]))))
+        torch.load('%s/%s.pth' % (root, join_strings('_', ['D_optim', name_suffix])), map_location=map_location))
+    D.to(device)
   # Load state dict
   for item in state_dict:
-    state_dict[item] = torch.load('%s/%s.pth' % (root, join_strings('_', ['state_dict', name_suffix])))[item]
+    state_dict[item] = torch.load('%s/%s.pth' % (root, join_strings('_', ['state_dict', name_suffix])), map_location=map_location)[item]
   if G_ema is not None:
     G_ema.load_state_dict(
-      torch.load('%s/%s.pth' % (root, join_strings('_', ['G_ema', name_suffix]))),
+      torch.load('%s/%s.pth' % (root, join_strings('_', ['G_ema', name_suffix])), map_location=map_location),
       strict=strict)
+    G_ema.to(device)
+
 
 
 ''' MetricsLogger originally stolen from VoxNet source code.

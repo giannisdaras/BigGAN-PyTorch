@@ -24,7 +24,7 @@ import torch.nn.functional as F
 import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-import torch_xla_py.xla_model as xm
+import torch_xla.core.xla_model as xm
 
 import datasets as dset
 

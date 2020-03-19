@@ -20,7 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Parameter as P
 from torchvision.models.inception import inception_v3
-import torch_xla_py.xla_model as xm
+import torch_xla.core.xla_model as xm
 
 
 # Module that wraps the inception network to enable use with dataparallel and

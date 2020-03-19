@@ -18,8 +18,9 @@ import torchvision
 import inception_utils
 import utils
 import losses
-import torch_xla_py.xla_model as xm
 
+import torch_xla.core.xla_model as xm
+import torchvision
 
 
 def run(config):

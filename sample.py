@@ -141,7 +141,7 @@ def run(config):
                                  normalize=True)
 
   # Get Inception Score and FID
-  get_inception_metrics = inception_utils.prepare_inception_metrics(config['dataset'], config['parallel'], config['no_fid'])
+  # get_inception_metrics = inception_utils.prepare_inception_metrics(config['dataset'], config['parallel'], config['no_fid'])
   # Prepare a simple function get metrics that we use for trunc curves
   def get_metrics():
     sample = functools.partial(utils.sample, G=G, z_=z_, y_=y_, config=config)

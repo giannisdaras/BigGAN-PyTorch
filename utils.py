@@ -1092,20 +1092,52 @@ class Distribution(torch.Tensor):
     return new_obj
 
 
+class NormalDistribution:
+    def __init__(self, G_batch_size, dim_z, device, fp16=False, z_var=1.0):
+        self.G_batch_size = G_batch_size
+        self.dim_z = dim_z
+        self.device = device
+        self.dtype = torch.float16 if fp16 else torch.float32
+        self.z_var = z_var
+
+    def sample_(self):
+        return torch.empty((self.G_batch_size, self.dim_z),
+                           device=self.device,
+                           dtype=self.dtype,
+                           requires_grad=False).normal_(0, math.sqrt(self.z_var))
+
+    def __call__(self):
+        return torch.empty((self.G_batch_size, self.dim_z),
+                           device=self.device,
+                           dtype=self.dtype,
+                           requires_grad=False).normal_(0, math.sqrt(self.z_var))
+
+
+
+class UniformDistribution:
+    def __init__(self, G_batch_size, nclasses, device):
+        self.G_batch_size = G_batch_size
+        self.nclasses = nclasses
+        self.device = device
+
+    def sample_(self):
+        return torch.empty(self.G_batch_size, 
+                           dtype=torch.int64, 
+                           requires_grad=False, 
+                           device=self.device).random_(self.nclasses)
+ 
+    def __call__(self):
+        return torch.empty(self.G_batch_size, 
+                           dtype=torch.int64, 
+                           requires_grad=False, 
+                           device=self.device).random_(self.nclasses)
+ 
 # Convenience function to prepare a z and y vector
 def prepare_z_y(G_batch_size, dim_z, nclasses, device='cuda',
                 fp16=False,z_var=1.0):
   device = xm.xla_device()
-  z_ = Distribution(torch.randn(G_batch_size, dim_z, requires_grad=False))
-  z_.init_distribution('normal', mean=0, var=z_var)
-  z_ = z_.to(device,torch.float16 if fp16 else torch.float32)
-
-  if fp16:
-    z_ = z_.half()
-
-  y_ = Distribution(torch.zeros(G_batch_size, requires_grad=False))
-  y_.init_distribution('categorical',num_categories=nclasses)
-  y_ = y_.to(device, torch.int64)
+  z_ = NormalDistribution(G_batch_size, dim_z, device, fp16, z_var)
+  y_ = UniformDistribution(G_batch_size, nclasses, device)
   return z_, y_
 
 

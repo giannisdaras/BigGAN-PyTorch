@@ -872,12 +872,12 @@ def progress(items, desc='', total=None, min_delay=0.1, displaytype='s1k'):
 # Sample function for use with inception metrics
 def sample(G, z_, y_, config):
   with torch.no_grad():
-    z_.sample_()
-    y_.sample_()
+    sample_z = z_.sample_()
+    sample_y = y_.sample_()
     if config['parallel']:
-      G_z =  nn.parallel.data_parallel(G, (z_, G.shared(y_)))
+      G_z =  nn.parallel.data_parallel(G, (sample_z, G.shared(sample_y)))
     else:
-      G_z = G(z_, G.shared(y_))
+      G_z = G(sample_z, G.shared(sample_y))
     return G_z, y_
 
 

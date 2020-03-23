@@ -72,10 +72,10 @@ def prepare_parser():
     help='Parameterization style to use for D, spectral norm (SN) or SVD (SVD)'
          ' or None (default: %(default)s)')
   parser.add_argument(
-    '--G_ch', type=int, default=64,
+    '--G_ch', type=int, default=96,
     help='Channel multiplier for G (default: %(default)s)')
   parser.add_argument(
-    '--D_ch', type=int, default=64,
+    '--D_ch', type=int, default=96,
     help='Channel multiplier for D (default: %(default)s)')
   parser.add_argument(
     '--G_depth', type=int, default=1,
@@ -165,7 +165,7 @@ def prepare_parser():
 
   ### Batch size, parallel, and precision stuff ###
   parser.add_argument(
-    '--batch_size', type=int, default=64,
+    '--batch_size', type=int, default=2048,
     help='Default overall batchsize (default: %(default)s)')
   parser.add_argument(
     '--G_batch_size', type=int, default=0,
@@ -224,7 +224,7 @@ def prepare_parser():
     '--num_save_copies', type=int, default=2,
     help='How many copies to save (default: %(default)s)')
   parser.add_argument(
-    '--num_best_copies', type=int, default=2,
+    '--num_best_copies', type=int, default=4,
     help='How many previous best checkpoints to save (default: %(default)s)')
   parser.add_argument(
     '--which_best', type=str, default='IS',

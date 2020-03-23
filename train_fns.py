@@ -36,9 +36,9 @@ def GAN_training_function(G, D, GD, z_, y_, ema, state_dict, config):
       # If accumulating gradients, loop multiple times before an optimizer step
       D.optim.zero_grad()
       for accumulation_index in range(config['num_D_accumulations']):
-        z_.sample_()
-        y_.sample_()
-        D_fake, D_real = GD(z_[:config['batch_size']], y_[:config['batch_size']],
+        z = z_.sample_()
+        gy = y_.sample_()
+        D_fake, D_real = GD(z[:config['batch_size']], gy[:config['batch_size']],
                             x[counter], y[counter], train_G=False,
                             split_D=config['split_D'])
 
@@ -55,7 +55,7 @@ def GAN_training_function(G, D, GD, z_, y_, ema, state_dict, config):
         print('using modified ortho reg in D')
         utils.ortho(D, config['D_ortho'])
 
-      D.optim.step()
+      xm.optimizer_step(D.optim, barrier=True)
 
     # Optionally toggle "requires_grad"
     if config['toggle_grads']:
@@ -67,9 +67,9 @@ def GAN_training_function(G, D, GD, z_, y_, ema, state_dict, config):
 
     # If accumulating gradients, loop multiple times
     for accumulation_index in range(config['num_G_accumulations']):
-      z_.sample_()
-      y_.sample_()
-      D_fake = GD(z_, y_, train_G=True, split_D=config['split_D'])
+      z = z_.sample_()
+      gy = y_.sample_()
+      D_fake = GD(z, gy, train_G=True, split_D=config['split_D'])
       G_loss = losses.generator_loss(D_fake) / float(config['num_G_accumulations'])
       G_loss.backward()
 
@@ -79,7 +79,7 @@ def GAN_training_function(G, D, GD, z_, y_, ema, state_dict, config):
       # Don't ortho reg shared, it makes no sense. Really we should blacklist any embeddings for this
       utils.ortho(G, config['G_ortho'],
                   blacklist=[param for param in G.shared.parameters()])
-    G.optim.step()
+    xm.optimizer_step(G.optim, barrier=True)
 
     # If we have an ema, update it, regardless of if we test with it or not
     if config['ema']:

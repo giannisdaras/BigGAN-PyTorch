@@ -28,7 +28,7 @@ import utils
 import losses
 import train_fns
 from sync_batchnorm import patch_replication_callback
-import torch_xla_py.xla_model as xm
+import torch_xla.core.xla_model as xm
 
 # The main training file. Config is a dictionary specifying the configuration
 # of this training run.

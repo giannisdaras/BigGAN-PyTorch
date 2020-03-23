@@ -46,6 +46,9 @@ def prepare_parser():
   parser.add_argument(
     '--seed', type=int, default=0,
     help='Random seed to use.')
+  parser.add_argument('--limit', type=int, 
+                      default=-1, 
+                      help='Number of batches to use for inception moments')
   return parser
 
 def run(config):
@@ -57,6 +60,10 @@ def run(config):
   net = inception_utils.load_inception_net(parallel=config['parallel'])
   pool, logits, labels = [], [], []
   device = xm.xla_device()
+
+  if config['limit'] > 0:
+      print('Uses a smaller version of the dataset')
+  
   for i, (x, y) in enumerate(tqdm(loaders[0])):
     x = x.to(device)
     with torch.no_grad():
@@ -64,6 +71,9 @@ def run(config):
       pool += [np.asarray(pool_val.cpu())]
       logits += [np.asarray(F.softmax(logits_val, 1).cpu())]
       labels += [np.asarray(y.cpu())]
+
+    if i == config['limit']:
+        break
 
   pool, logits, labels = [np.concatenate(item, 0) for item in [pool, logits, labels]]
   # uncomment to save pool, logits, and labels to disk
